@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/go-martini/martini"
+	"github.com/googollee/go-gcm"
+	"log"
 	"net/http"
 )
 
@@ -22,6 +24,22 @@ func main() {
 	})
 	m.Run()
 }
+
+func gcm_sender() {
+	client := gcm.New("key")
+	load := gcm.NewMessage("device_id")
+	load.AddRecipient("abc")
+	load.SetPayload("data", "1")
+	load.CollapseKey = "demo"
+	load.DelayWhileIdle = true
+	load.TimeToLive = 10
+	resp, err := client.Send(load)
+	fmt.Printf("id: %+v\n", resp)
+	fmt.Println("err:", err)
+	fmt.Println("err index:", resp.ErrorIndexes())
+	fmt.Println("reg index:", resp.RefreshIndexes())
+}
+
 
 func test() {
 	var a int
