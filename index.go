@@ -73,6 +73,9 @@ func table() {
 
 func queue() {
 	c, err := client.New("tcp4", "127.0.0.1:4730")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	defer c.Close()
 	c.ErrorHandler = func(e error) {
@@ -82,5 +85,4 @@ func queue() {
 	jobHandler := func(resp *client.Response) {
 		log.Printf("%s", resp.Data)
 	}
-	handle, err := c.Do("ToUpper", echo, client.JobNormal, jobHandler)
 }
