@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"github.com/go-martini/martini"
 	"github.com/googollee/go-gcm"
+	"github.com/kr/beanstalk"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/mikespook/gearman-go/client"
 	"log"
 	"net/http"
+	"time"
 )
+
 
 func main() {
 	m := martini.Classic()
 
 	m.Get("/", func() string {
-		return "Hello world!"
+		gcm_sender()
+		return "ok"
 	})
 
 	m.Get("/test/:name", func(res http.ResponseWriter, req *http.Request) { // res 和 req 是由 Martini 注入
@@ -26,13 +29,17 @@ func main() {
 		table()
 	}
 	
-	m.Get("/queue", func(res http.ResponseWriter, req *http.Request) {
-		queue()
-	})
-	
 	m.NotFound(func() {
 		// handle 404
 	})
+	
+	// 在請求前後加 logs
+	m.Use(func(c martini.Context, log *log.Logger) {
+		log.Println("before a request")
+		c.Next()
+		log.Println("after a request")
+	})
+	
 	m.Run()
 }
 
@@ -52,7 +59,6 @@ func gcm_sender() {
 }
 
 func table() {
-
 	db, err := sql.Open("sqlite3", "./foo.db")
 	if err != nil {
 		log.Fatal(err)
@@ -68,21 +74,24 @@ func table() {
 		log.Printf("%q: %s\n", err, sqlStmt)
 		return
 	}
-
 }
 
-func queue() {
-	c, err := client.New("tcp4", "127.0.0.1:4730")
+func reserve() {
+	c, err := beanstalk.Dial("tcp", "127.0.0.1:11300")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
-
-	defer c.Close()
-	c.ErrorHandler = func(e error) {
-		log.Println(e)
-	}
-
-	jobHandler := func(resp *client.Response) {
-		log.Printf("%s", resp.Data)
+	for true {
+		name := "DailyCount"
+		tube := beanstalk.NewTubeSet(c, name)
+		id, body, err := tube.Reserve(10 * time.Second)
+		if err != nil {
+			//panic(err)
+			fmt.Println(err)
+			continue
+		}
+		fmt.Println("job", id)
+		fmt.Println(string(body))
+		c.Delete(id)
 	}
 }
